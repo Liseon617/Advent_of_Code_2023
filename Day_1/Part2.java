@@ -21,7 +21,6 @@ public class Part2 {
                 }
             }
         }
-
         if (integerList.size() == 1) {
             int intValue = integerList.get(0);
             return intValue * 10 + intValue;
