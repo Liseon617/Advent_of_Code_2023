@@ -1,190 +1,201 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import java.util.*;
 
 public class Part2 {
-    // function to get the destination of where the current seed goes to
-    public static List<Long> getDestination(Long currentSeed, Long range, Map<List<Long>, Long> currentMap) {
 
-        Long currentEnd = currentSeed + range - 1;
-        // loop through every entry in the current map
-        for (Map.Entry<List<Long>, Long> entry : currentMap.entrySet()) {
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new FileReader("Day_5\\day5.txt"));
 
-            // get the key
-            List<Long> key = entry.getKey();
+        String s = br.readLine().substring("seeds: ".length());
+        List<Long> initial = Arrays.stream(s.split(" ")).map(Long::parseLong).toList();
+        List<GardenMap> maps = new ArrayList<>();
+        GardenMap cur = null;
 
-            Long startingRangeInclusive = key.get(0);
-            Long endingRangeExclusive = key.get(1) + startingRangeInclusive - 1;
-
-            if (isOverLapping(currentSeed, currentEnd, startingRangeInclusive, endingRangeExclusive)) {
-                List<Long> overlappedRange = getOverlap(currentSeed, currentEnd, startingRangeInclusive, endingRangeExclusive);
-
-                // determine what is the difference
-                Long difference = overlappedRange.get(0) - startingRangeInclusive;
-                System.out.println(difference);
-                System.out.println(overlappedRange.get(1));
-                // determine what is the mapping of the first number in the particular range
-                Long destination = entry.getValue() + difference;
-                List<Long> output = new ArrayList<>();
-                output.add(destination);
-                output.add(overlappedRange.get(1));
-                return output; 
-            }
-
-        }
-        List<Long> defaultOutput = new ArrayList<>();
-        defaultOutput.add(currentSeed);
-        defaultOutput.add(range);
-        return defaultOutput;
-    }
-
-    public static boolean isOverLapping(Long currentStart, Long currentEnd, Long mapStart, Long mapEnd) {
-        return currentStart <= mapEnd && currentEnd >= mapStart;
-    }
-
-    public static List<Long> getOverlap(Long currentStart, Long currentEnd, Long mapStart, Long mapEnd) {
-        long overlapStart = Math.max(currentStart, mapStart);
-        long overlapEnd = Math.min(currentEnd, mapEnd);
-        long overlapCount = overlapEnd - overlapStart + 1;
-        List<Long> output = new ArrayList<>();
-        output.add(overlapStart);
-        output.add(overlapCount);
-        return output;
-    }
-
-    // public static List<List<Long>> findOverlappingRanges(List<List<Long>> ranges)
-    // {
-    // if (ranges == null || ranges.isEmpty()) {
-    // return Collections.emptyList();
-    // }
-
-    // List<List<Long>> overlappingRanges = new ArrayList<>();
-
-    // for (int i = 0; i < ranges.size() - 1; i++) {
-    // List<Long> currentRange = ranges.get(i);
-    // Long currentStart = currentRange.get(0);
-    // Long currentEnd = currentRange.get(0) + currentRange.get(1) - 1;
-
-    // for (int j = i + 1; j < ranges.size(); j++) {
-    // List<Long> nextRange = ranges.get(j);
-    // Long currentStart = currentRange.get(0);
-    // Long currentEnd = currentRange.get(0) + currentRange.get(1) - 1;
-
-    // if (currentRange.isOverLapping(currentRange.get(0), , nextRange)) {
-    // List<Long> overlapRange = currentRange.getOverlap(nextRange);
-    // overlappingRanges.add(overlapRange);
-    // }
-    // }
-    // }
-
-    // return overlappingRanges;
-    // }
-
-    public static List<Long> lineToList(String line) {
-        List<Long> output = new ArrayList<>();
-        String[] lineArray = line.split("\\s+");
-        for (int i = 0; i < lineArray.length; i++) {
-            if (lineArray[i].matches("\\d+")) {
-                output.add(Long.parseLong(lineArray[i]));
-                ;
+        while ((s = br.readLine()) != null) {
+            if (s.isEmpty()) {
+                if (cur != null) {
+                    maps.add(cur);
+                }
+                s = br.readLine(); // heading
+                cur = new GardenMap();
+            } else {
+                cur.addMap(s.split(" "));
             }
         }
-        return output;
+        maps.add(cur);
+
+        TreeSet<Range> ranges = new TreeSet<>();
+        for (int i = 0; i < initial.size() - 1; i += 2) {
+            Long start = initial.get(i);
+            ranges.add(new Range(start, start + initial.get(i + 1) - 1));
+        }
+        mergeRanges(ranges);
+
+        for (GardenMap gm : maps) {
+            //System.out.println("\napply " + gm);
+            ranges = gm.map(ranges);
+            //printRanges(ranges);
+        }
+        System.out.println(ranges.first().start);
+        br.close();
     }
 
-    public static List<Long> convertToIntList(String[] lineArray) {
-        List<Long> numberList = new ArrayList<>();
+    private static void mergeRanges(TreeSet<Range> ranges) {
+        Range prev = null;
+        for (Iterator<Range> it = ranges.iterator(); it.hasNext(); ) {
+            Range cur = it.next();
+            if (prev == null) {
+                prev = cur;
+                continue;
+            }
 
-        for (String str : lineArray) {
-            if (str.matches("\\d+")) {
-                // Parse each string to a double and add to the list
-                Long number = Long.parseLong(str);
-                numberList.add(number);
+            if (prev.overlapOrAdjacent(cur)) {
+                // this is a bit risky. These operations will not change the ordering in the end, but still -
+                // it depends on the TreeSet implementation that this is ok... however, it works in Java 21.
+                prev.start = Math.min(prev.start, cur.start);
+                prev.end = Math.max(prev.end, cur.end);
+                it.remove();
+            } else {
+                prev = cur;
             }
         }
-
-        return numberList;
     }
 
-    public static void main(String[] args) {
-        String filepath = "Day_5\\test.txt";
-        try (BufferedReader br = new BufferedReader(new FileReader(filepath))) {
-            String line;
-            List<Long> seeds = new ArrayList<>();
-            Map<List<Long>, Long> seedToSoil = new HashMap<>();
-            Map<List<Long>, Long> soilToFertilizer = new HashMap<>();
-            Map<List<Long>, Long> fertilizerToWater = new HashMap<>();
-            Map<List<Long>, Long> waterToLight = new HashMap<>();
-            Map<List<Long>, Long> lightToTemperature = new HashMap<>();
-            Map<List<Long>, Long> temperatureToHumidity = new HashMap<>();
-            Map<List<Long>, Long> humidityToLocation = new HashMap<>();
+    private static class GardenMap {
+        private List<OneMap> maps = new ArrayList<>();
 
-            List<String> stringLines = new ArrayList<>();
-            while ((line = br.readLine()) != null) {
-                stringLines.add(line);
+        public void addMap(String... spec) {
+            if (spec.length != 3) {
+                throw new IllegalArgumentException();
             }
+            maps.add(new OneMap(Long.parseLong(spec[0]), Long.parseLong(spec[1]), Long.parseLong(spec[2])));
+        }
 
-            String[] lineArray = stringLines.get(0).split("\\s+");
-            seeds = convertToIntList(lineArray);
-            Map<List<Long>, Long> currentMap = new HashMap<>();
-            for (int i = 1; i < stringLines.size(); i++) {
-                if (stringLines.get(i).equals("seed-to-soil map:")) {
-                    currentMap = seedToSoil;
-                } else if (stringLines.get(i).equals("soil-to-fertilizer map:")) {
-                    currentMap = soilToFertilizer;
-                } else if (stringLines.get(i).equals("fertilizer-to-water map:")) {
-                    currentMap = fertilizerToWater;
-                } else if (stringLines.get(i).equals("water-to-light map:")) {
-                    currentMap = waterToLight;
-                } else if (stringLines.get(i).equals("light-to-temperature map:")) {
-                    currentMap = lightToTemperature;
-                } else if (stringLines.get(i).equals("temperature-to-humidity map:")) {
-                    currentMap = temperatureToHumidity;
-                } else if (stringLines.get(i).equals("humidity-to-location map:")) {
-                    currentMap = humidityToLocation;
-                } else {
-                    List<Long> lineIntList = lineToList(stringLines.get(i));
-                    if (lineIntList.size() > 0) {
-                        // System.out.println(lineIntList);
-                        List<Long> keyList = new ArrayList<>(Arrays.asList(lineIntList.get(1), lineIntList.get(2)));
-                        currentMap.put(keyList, lineIntList.get(0));
-                    }
+        public long map(long src) {
+            for (OneMap o : maps) {
+                Long cand = o.map(src);
+                if (cand != null) {
+                    return cand;
                 }
             }
-            long lowestLocation = Long.MAX_VALUE;
-            for (int i = 0; i < seeds.size(); i += 2) {
-                List<Long> soil = getDestination(seeds.get(i), seeds.get(i + 1), seedToSoil);
-                List<Long> fertilizer = getDestination(soil.get(0), soil.get(1), soilToFertilizer);
-                List<Long> water = getDestination(fertilizer.get(0), fertilizer.get(1), fertilizerToWater);
-                List<Long> light = getDestination(water.get(0), water.get(1), waterToLight);
-                List<Long> temperature = getDestination(light.get(0), light.get(1), lightToTemperature);
-                List<Long> humidity = getDestination(temperature.get(0), temperature.get(1), temperatureToHumidity);
-                List<Long> location = getDestination(humidity.get(0), humidity.get(1), humidityToLocation);
-                // System.out.println("seed: " + seed);
-                System.out.println("soil: " + soil);
-                System.out.println("fertilizer: " + fertilizer);
-                System.out.println("water: " + water);
-                System.out.println("light: " + light);
-                System.out.println("temperature: " + temperature);
-                System.out.println("humidity: " + humidity);
-                System.out.println("location: " + location);
-                System.out.println();
-                if (location.get(0) < lowestLocation) {
-                    lowestLocation = location.get(0);
-                }
-            }
-            // for (Long seed : seeds) {
+            return src;
+        }
 
-            // }
-            System.err.println(lowestLocation);
-        } catch (IOException e) {
-            e.printStackTrace();
+        public TreeSet<Range> map(TreeSet<Range> ranges) {
+            TreeSet<Range> mapped = new TreeSet<>();
+            TreeSet<Range> unmapped = ranges;
+            for (OneMap o : maps) {
+                if (unmapped.isEmpty()) {
+                    break;
+                }
+                TreeSet<Range> step = new TreeSet<>();
+                o.map(unmapped, step, mapped);
+                unmapped = step;
+            }
+            mapped.addAll(unmapped);
+            mergeRanges(mapped);
+            return mapped;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (OneMap m : maps) {
+                sb.append(m.toString());
+                sb.append(" ");
+            }
+            return sb.toString();
+        }
+    }
+
+    private static class OneMap {
+        Range source;
+        long targetStart;
+
+        public OneMap(long targetStart, long sourceStart, long length) {
+            source = new Range(sourceStart, sourceStart + length - 1);
+            this.targetStart = targetStart;
+        }
+
+        public Long map(long src) {
+            if (source.contains(src)) {
+                return targetStart + (src - source.start);
+            }
+            return null;
+        }
+
+        public void map(TreeSet<Range> in, TreeSet<Range> unmapped, TreeSet<Range> mapped) {
+            for (Range r : in) {
+                if (source.end < r.start || source.start > r.end) {
+                    unmapped.add(r);
+                    continue;
+                }
+                // they overlap: there can be 1 to 3 ranges now, up to two unmapped to the left an right of source
+                if (r.start < source.start) {
+                    unmapped.add(new Range(r.start, source.start - 1));
+                }
+                if (r.end > source.end) {
+                    unmapped.add(new Range(source.end + 1, r.end));
+                }
+
+                // and definitely one that is mapped
+                long ms = targetStart + (Math.max(source.start, r.start) - source.start);
+                long me = targetStart + (Math.min(source.end, r.end) - source.start);
+                mapped.add(new Range(ms, me));
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "[" + source.start + "-" + source.end + " -> " + targetStart + "...]";
+        }
+    }
+
+    private static class Range implements Comparable<Range> {
+        long start, end; // inclusive
+
+        public Range(long start, long end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        public boolean overlapOrAdjacent(Range bigger) {
+            return bigger.contains(start) || bigger.contains(end + 1) || contains(bigger.start);
+        }
+
+        public boolean contains(long l) {
+            return l >= start && l <= end;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Range range)) return false;
+
+            if (start != range.start) return false;
+            return end == range.end;
+        }
+
+        @Override
+        public int compareTo(Range o) {
+            long r = start - o.start;
+            if (r == 0) {
+                r = end - o.end;
+            }
+            if (r < 0) {
+                return -1;
+            }
+            if (r > 0) {
+                return 1;
+            }
+            return 0;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + start + "-" + end + ")";
         }
     }
 }
