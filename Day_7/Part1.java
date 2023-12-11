@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
@@ -11,6 +10,7 @@ import java.util.regex.Pattern;
 
 public class Part1 {
 
+    // Enum to represent the possible ranks of a hand
     private enum Rank {
         FIVE_OF_A_KIND,
         FOUR_OF_A_KIND,
@@ -20,9 +20,11 @@ public class Part1 {
         ONE_PAIR,
         HIGH_CARD;
 
+        // Determine the rank of a hand based on the given cards
         public static Rank determine(Card[] cards) {
             EnumMap<Card, Integer> counts = new EnumMap<>(Card.class);
-            counts.put(Card.JOKER, 0);
+            
+            // Count occurrences of each card
             for (Card c : cards) {
                 if (!counts.containsKey(c)) {
                     counts.put(c, 1);
@@ -30,17 +32,14 @@ public class Part1 {
                     counts.put(c, counts.get(c) + 1);
                 }
             }
-            int jokers = counts.remove(Card.JOKER);
-            if (jokers == 5) {
-                return FIVE_OF_A_KIND;
-            }
             int two = 0;
             boolean three = false;
+            //count repeated cards
             for (var v : counts.values()) {
-                if (v + jokers == 5) {
+                if (v == 5) {
                     return FIVE_OF_A_KIND;
                 }
-                if (v + jokers == 4) {
+                if (v == 4) {
                     return FOUR_OF_A_KIND;
                 }
                 if (v == 3) {
@@ -50,22 +49,11 @@ public class Part1 {
                     two++;
                 }
             }
+            // Determine the final hand rank
             if (two == 1 && three) {
                 return FULL_HOUSE;
             }
-            if (two == 2 && jokers == 1) {
-                return FULL_HOUSE;
-            }
-            if (two == 1 && jokers == 2) {
-                return FULL_HOUSE;
-            }
             if (three) {
-                return THREE_OF_A_KIND;
-            }
-            if (two == 1 && jokers == 1) {
-                return THREE_OF_A_KIND;
-            }
-            if (jokers == 2) {
                 return THREE_OF_A_KIND;
             }
             if (two == 2) {
@@ -74,34 +62,31 @@ public class Part1 {
             if (two == 1) {
                 return ONE_PAIR;
             }
-            if (jokers == 1) {
-                return ONE_PAIR;
-            }
-            if (jokers > 0) {
-                System.out.println(Arrays.toString(cards));
-                throw new IllegalStateException();
-            }
+            System.out.println(HIGH_CARD);
             return HIGH_CARD;
         }
     }
 
+    // Enum to represent individual cards
     private enum Card {
         A("A"), K("K"), Q("Q"), JACK("J"), TEN("T"), NINE("9"), EIGHT("8"), SEVEN("7"),
-        SIX("6"), FIVE("5"), FOUR("4"), THREE("3"), TWO("2"), JOKER("*");
+        SIX("6"), FIVE("5"), FOUR("4"), THREE("3"), TWO("2");
 
         private final String disp;
 
+        // Constructor to associate a display string with each card
         Card(String disp) {
             this.disp = disp;
         }
 
+        // Find a card by its display string
         public static Card findByCharJack(String in) {
             for (Card c : values()) {
                 if (c.disp.equals(in)) {
                     return c;
                 }
             }
-            throw new IllegalArgumentException(in);
+            return null;
         }
 
         @Override
@@ -110,6 +95,7 @@ public class Part1 {
         }
     }
 
+    // Hand class
     private static class Hand implements Comparable<Hand> {
         private long bid;
         private Rank rank;
@@ -121,8 +107,7 @@ public class Part1 {
             for (int i = 0; i < 5; i++) {
                 cs.add(Card.findByCharJack(hand.substring(i, i + 1)));
             }
-            // Collections.sort(cs); // actually, not. The problem states that cards stay in
-            // order.
+
             cards = cs.toArray(new Card[5]);
             rank = Rank.determine(cards);
         }
@@ -142,6 +127,7 @@ public class Part1 {
 
         @Override
         public int compareTo(Hand o) {
+            // Compare hands based on rank and then individual card values
             int c = rank.compareTo(o.rank);
             if (c == 0) {
                 for (int i = 0; i < 5; i++) {
@@ -172,6 +158,7 @@ public class Part1 {
             List<Hand> hands = new ArrayList<>();
             while ((s = br.readLine()) != null) {
                 Matcher mat = pat.matcher(s);
+                // Create hand objects
                 if (mat.matches()) {
                     hands.add(new Hand(mat.group(1), mat.group(2)));
 
